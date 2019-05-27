@@ -31,15 +31,21 @@ import {ViewChild} from "@angular/core";
 import {WorkPackageEmbeddedTableComponent} from "core-components/wp-table/embedded/wp-embedded-table.component";
 import {QueryResource} from "core-app/modules/hal/resources/query-resource";
 import {UrlParamsHelperService} from "core-components/wp-query/url-params-helper";
+import {ErrorResource} from "core-app/modules/hal/resources/error-resource";
+import {query} from "@angular/animations";
+import {HalResource} from "core-app/modules/hal/resources/hal-resource";
 
 export abstract class WorkPackageRelationQueryBase {
   public workPackage:WorkPackageResource;
 
   /** Input is either a query resource, or directly query props */
-  public query:Object;
+  public query:QueryResource|Object;
 
   /** Query props are derived from the query resource, if any */
   public queryProps:Object;
+
+  /** Whether this section should be hidden completely (due to missing permissions e.g.) */
+  public hidden:boolean = false;
 
   /** Reference to the embedded table instance */
   @ViewChild('embeddedTable') protected embeddedTable:WorkPackageEmbeddedTableComponent;
@@ -55,30 +61,49 @@ export abstract class WorkPackageRelationQueryBase {
   }
 
   /**
-   * Create a contextualized copy of the query where all
-   * references to the templated value are replaced with the actual work package ID.
+   * Special handling for query loading when a project filter is involved.
+   *
+   * Ensure that at least one project was visible to the user or otherwise,
+   * hide the creation from them.
+   * cf. OP#30106
+   * @param query
    */
-  protected contextualizedQuery(query:QueryResource) {
-    let duppedQuery = _.cloneDeep(query);
+  public handleQueryLoaded(loaded:QueryResource) {
 
-    _.each(duppedQuery.filters, (filter) => {
-      if (filter._links.values[0] && filter._links.values[0].templated) {
-        filter._links.values[0].href = filter._links.values[0].href.replace('{id}', this.workPackage.id!);
-      }
-    });
+    // We only handle loaded queries
+    if (!(this.query instanceof QueryResource)) {
+      return;
+    }
 
-    return duppedQuery;
+    const filters = this.projectFilterValues(this.query);
+    const loadedFilters = this.projectFilterValues(loaded);
+
+    // Has a project filter been reduced to zero elements?
+    if (filters.length > 0 && loadedFilters.length === 0) {
+      this.hidden = true;
+    }
+  }
+
+  /**
+   * Get the filters of the query props
+   */
+  protected projectFilterValues(query:QueryResource):HalResource[]|string[] {
+    const project = query.filters.find(f => f.id === 'project');
+    return project ? project.values : [];
   }
 
   /**
    * Set up the query props from input
    */
   protected buildQueryProps() {
-    if (this.query && (this.query as any)._type === 'Query') {
-      let query = this.contextualizedQuery(this.query as QueryResource);
-      this.queryProps = this.queryUrlParamsHelper.buildV3GetQueryFromQueryResource(query, {});
+    if (this.query instanceof QueryResource) {
+      return this.queryUrlParamsHelper.buildV3GetQueryFromQueryResource(
+        this.query,
+        {},
+        { id: this.workPackage.id! }
+      );
     } else {
-      this.queryProps = this.query;
+      return this.query;
     }
   }
 }

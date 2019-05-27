@@ -40,6 +40,8 @@ import {untilComponentDestroyed} from "ng2-rx-componentdestroyed";
 import {WorkPackageRelationQueryBase} from "core-components/wp-relations/embedded/wp-relation-query.base";
 import {WpChildrenInlineCreateService} from "core-components/wp-relations/embedded/children/wp-children-inline-create.service";
 import {WorkPackageCacheService} from "core-components/work-packages/work-package-cache.service";
+import {promise} from "selenium-webdriver";
+import {filter} from "rxjs/operators";
 
 @Component({
   selector: 'wp-children-query',
@@ -79,12 +81,13 @@ export class WorkPackageChildrenQueryComponent extends WorkPackageRelationQueryB
     this.wpInlineCreate.referenceTarget = this.workPackage;
 
     // Set up the query props
-    this.buildQueryProps();
+    this.queryProps = this.buildQueryProps();
 
     // Refresh table when work package is refreshed
     this.wpCacheService
       .observe(this.workPackage.id!)
       .pipe(
+        filter(() => this.embeddedTable && this.embeddedTable.isInitialized),
         untilComponentDestroyed(this)
       )
       .subscribe(() => this.refreshTable());

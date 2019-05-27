@@ -47,6 +47,7 @@ import {HookService} from 'core-app/modules/plugins/hook-service';
 import {randomString} from "core-app/helpers/random-string";
 import {BrowserDetector} from "core-app/modules/common/browser/browser-detector.service";
 import {PortalCleanupService} from "core-app/modules/fields/display/display-portal/portal-cleanup.service";
+import {HalResourceService} from "core-app/modules/hal/services/hal-resource.service";
 
 export interface FieldDescriptor {
   name:string;
@@ -129,6 +130,7 @@ export class WorkPackageSingleViewComponent implements OnInit, OnDestroy {
               protected states:States,
               protected dynamicCssService:DynamicCssService,
               @Inject(IWorkPackageEditingServiceToken) protected wpEditing:WorkPackageEditingService,
+              protected halResourceService:HalResourceService,
               protected displayFieldService:DisplayFieldService,
               protected wpCacheService:WorkPackageCacheService,
               protected hook:HookService,
@@ -283,7 +285,7 @@ export class WorkPackageSingleViewComponent implements OnInit, OnDestroy {
         return {
           name: group.name,
           id: groupId || randomString(16),
-          query: group._embedded.query,
+          query: this.halResourceService.createHalResourceOfClass(QueryResource, group._embedded.query),
           relationType: group.relationType,
           members: [group._embedded.query],
           type: group._type,
